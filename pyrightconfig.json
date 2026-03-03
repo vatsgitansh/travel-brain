@@ -1,0 +1,26 @@
+{
+    "venvPath": ".",
+    "venv": "venv",
+    "pythonVersion": "3.13",
+    "pythonPlatform": "Darwin",
+    "include": [
+        "travel_brain"
+    ],
+    "exclude": [
+        "venv",
+        "data",
+        ".pytest_cache",
+        "**/__pycache__"
+    ],
+    "typeCheckingMode": "basic",
+    "useLibraryCodeForTypes": true,
+    "reportMissingImports": "warning",
+    "reportMissingModuleSource": "none",
+    "reportOperatorIssue": "none",
+    "reportIndexIssue": "none",
+    "reportArgumentType": "warning",
+    "reportGeneralTypeIssues": "warning",
+    "reportAttributeAccessIssue": "warning",
+    "reportCallIssue": "warning",
+    "reportReturnType": "warning"
+}

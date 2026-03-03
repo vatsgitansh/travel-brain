@@ -1,0 +1,21 @@
+{
+  "site_package_search_strategy": "pep561",
+  "source_directories": ["."],
+  "search_path": [
+    "venv/lib/python3.13/site-packages",
+    "."
+  ],
+  "python_version": "3.13",
+  "python_path": "venv/bin/python",
+  "strict": false,
+  "exclude": [
+    "venv/.*",
+    "data/.*",
+    ".pytest_cache/.*",
+    ".*/__pycache__/.*"
+  ],
+  "ignore_all_errors": false,
+  "do_not_check_paths": [
+    "venv/"
+  ]
+}

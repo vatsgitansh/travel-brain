@@ -1,0 +1,27 @@
+[tool.pyright]
+venvPath = "."
+venv = "venv"
+pythonVersion = "3.13"
+typeCheckingMode = "basic"
+useLibraryCodeForTypes = true
+
+# Downgrade "missing import" errors to warnings — packages live in venv
+reportMissingImports = "warning"
+reportMissingModuleSource = "none"
+
+# These are Pyre2/Pyright false positives on standard Python patterns
+reportGeneralTypeIssues = "warning"
+reportOperatorIssue = "none"          # round(x, 1), list slicing etc.
+reportIndexIssue = "none"             # list[:n] slice issues in Pyre2
+reportArgumentType = "warning"
+
+[tool.pytest.ini_options]
+testpaths = ["travel_brain/tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+[tool.pyre2]
+# Pyre2 configuration: point at venv for package discovery
+python_path = "venv/bin/python"
+search_path = ["venv/lib/python3.13/site-packages", "."]
