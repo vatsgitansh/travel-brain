@@ -1031,15 +1031,25 @@
 
         // Use html2pdf for pure client-side PDF generation natively in the browser!
         const opt = {
-          margin: 0,
+          margin: 0.5,
           filename: `${cleanTitle}.pdf`,
           image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true },
+          html2canvas: { scale: 2, useCORS: true, windowWidth: 800 },
           jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
         };
 
+        // Element MUST be in the DOM for html2canvas to compute its layout correctly
+        container.style.position = 'absolute';
+        container.style.left = '-9999px';
+        container.style.top = '0';
+        container.style.width = '800px';
+        document.body.appendChild(container);
+
         // This command builds the PDF and triggers the browser download natively.
-        html2pdf().set(opt).from(container).save();
+        await html2pdf().set(opt).from(container).save();
+
+        // Cleanup off-screen element
+        document.body.removeChild(container);
 
       } catch (err) {
         alert("Sorry, could not generate the PDF at this time.");
