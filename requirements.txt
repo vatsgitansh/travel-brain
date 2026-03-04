@@ -6,6 +6,7 @@ attrs==25.4.0
 backoff==2.2.1
 bcrypt==5.0.0
 beautifulsoup4==4.14.3
+brotli==1.2.0
 build==1.4.0
 certifi==2026.2.25
 cffi==2.0.0
@@ -13,12 +14,14 @@ charset-normalizer==3.4.4
 chromadb==1.5.1
 click==8.3.1
 cryptography==46.0.5
+cssselect2==0.9.0
 defusedxml==0.7.1
 distro==1.9.0
 durationpy==0.10
 fastapi==0.133.1
 filelock==3.24.3
 flatbuffers==25.12.19
+fonttools==4.61.1
 fsspec==2026.2.0
 ftfy==6.3.1
 google-ai-generativelanguage==0.6.15
@@ -50,6 +53,7 @@ kubernetes==35.0.0
 langdetect==1.0.9
 lxml==6.0.2
 markdown-it-py==4.0.0
+markdown2==2.5.5
 MarkupSafe==3.0.3
 mdurl==0.1.2
 mmh3==5.2.0
@@ -67,6 +71,8 @@ opentelemetry-semantic-conventions==0.60b1
 orjson==3.11.7
 overrides==7.7.0
 packaging==26.0
+pdfkit==1.0.0
+pillow==12.1.1
 pluggy==1.6.0
 posthog==5.4.0
 praw==7.8.1
@@ -79,8 +85,10 @@ pybase64==1.4.3
 pycparser==3.0
 pydantic==2.12.5
 pydantic_core==2.41.5
+pydyf==0.12.1
 Pygments==2.19.2
 pyparsing==3.3.2
+pyphen==0.17.2
 PyPika==0.51.1
 pyproject_hooks==1.2.0
 pytest==9.0.2
@@ -108,6 +116,8 @@ sympy==1.14.0
 tenacity==9.1.4
 threadpoolctl==3.6.0
 tiktoken==0.12.0
+tinycss2==1.5.1
+tinyhtml5==2.0.0
 tokenizers==0.22.2
 torch==2.10.0
 tqdm==4.67.3
@@ -124,7 +134,10 @@ uvicorn==0.41.0
 uvloop==0.22.1
 watchfiles==1.1.1
 wcwidth==0.6.0
+weasyprint==68.1
+webencodings==0.5.1
 websocket-client==1.9.0
 websockets==16.0
 youtube-transcript-api==1.2.4
 zipp==3.23.0
+zopfli==0.4.1

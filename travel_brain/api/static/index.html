@@ -900,7 +900,18 @@
               } else if (event.type === 'sources') {
                 // Sources received but intentionally NOT displayed to user
               } else if (event.type === 'done') {
-                bubbleEl.innerHTML = renderMarkdown(fullAnswer);
+                let actionBtn = '';
+                if (fullAnswer.length > 250) {
+                  // Safe injection for the onclick handler
+                  const escContent = encodeURIComponent(fullAnswer);
+                  actionBtn = `
+                    <div style="margin-top:12px; border-top: 1px solid var(--border); padding-top: 8px;">
+                      <button onclick="downloadPDF(decodeURIComponent('${escContent}'))" class="chip" style="border:1px solid var(--primary); background:var(--bg); color:var(--primary); cursor:pointer;">
+                        📥 Download as PDF
+                      </button>
+                    </div>`;
+                }
+                bubbleEl.innerHTML = renderMarkdown(fullAnswer) + actionBtn;
                 scrollToBottom();
               } else if (event.type === 'error') {
                 bubbleEl.innerHTML = `<span style="color:var(--red)">⚠️ ${escHtml(event.content)}</span>
@@ -912,12 +923,12 @@
 
         // Save complete conversation to localStorage if successful
         if (fullAnswer.trim().length > 0) {
-            conversationHistory.push({ role: 'assistant', content: fullAnswer });
-            saveConversation(
-              currentConvId,
-              conversationHistory[0]?.content?.slice(0, 60) || 'Conversation',
-              conversationHistory
-            );
+          conversationHistory.push({ role: 'assistant', content: fullAnswer });
+          saveConversation(
+            currentConvId,
+            conversationHistory[0]?.content?.slice(0, 60) || 'Conversation',
+            conversationHistory
+          );
         }
         renderHistory();
 
@@ -946,7 +957,7 @@
       if (el.lastElementChild) el.removeChild(el.lastElementChild);
       // Remove user sent message from history state
       if (conversationHistory.length > 0) conversationHistory.pop();
-      
+
       // Resend the text
       document.getElementById('chatInput').value = text;
       sendMessage();
@@ -987,6 +998,42 @@
       </div>`;
       el.appendChild(row);
       return row;
+    }
+
+    /* ── PDF Downloader ──────────────────────────────────────────────────────── */
+    async function downloadPDF(markdownContent) {
+      if (!markdownContent) return;
+
+      const titleMatch = markdownContent.match(/^#+\s+(.*)$/m);
+      const title = titleMatch ? titleMatch[1] : 'My Travel Itinerary';
+
+      try {
+        const response = await fetch(`${API}/itinerary/pdf`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: title,
+            markdown_content: markdownContent
+          }),
+        });
+
+        if (!response.ok) throw new Error("Failed to generate PDF");
+
+        // Convert the byte stream into a massive blob to download in JS
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        // Strip out emojis and weird characters for the filename
+        a.download = title.replace(/[^a-zA-Z0-9 -]/g, '').trim().replace(/\s+/g, '_') + '.pdf';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } catch (err) {
+        alert("Sorry, could not generate the PDF at this time.");
+        console.error("PDF generation error:", err);
+      }
     }
 
     /* ── Markdown renderer ───────────────────────────────────────────────────── */
@@ -1057,7 +1104,7 @@
     function detectLocationAndShowAdvisory(text) {
       if (!text) return;
       const lowerText = text.toLowerCase();
-      
+
       let loc = null;
       if (lowerText.includes('dubai')) loc = 'dubai';
       else if (lowerText.includes('bali')) loc = 'bali';
