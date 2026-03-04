@@ -901,18 +901,7 @@
               } else if (event.type === 'sources') {
                 // Sources received but intentionally NOT displayed to user
               } else if (event.type === 'done') {
-                let actionBtn = '';
-                if (fullAnswer.length > 250) {
-                  // Safe injection for the onclick handler, explicitly escaping apostrophes
-                  const escContent = encodeURIComponent(fullAnswer).replace(/'/g, "%27");
-                  actionBtn = `
-                    <div style="margin-top:12px; border-top: 1px solid var(--border); padding-top: 8px;">
-                      <button onclick="downloadPDF(decodeURIComponent('${escContent}'))" class="chip" style="border:1px solid var(--primary); background:var(--bg); color:var(--primary); cursor:pointer;">
-                        📥 Download as PDF
-                      </button>
-                    </div>`;
-                }
-                bubbleEl.innerHTML = renderMarkdown(fullAnswer) + actionBtn;
+                bubbleEl.innerHTML = renderMarkdown(fullAnswer);
                 scrollToBottom();
               } else if (event.type === 'error') {
                 bubbleEl.innerHTML = `<span style="color:var(--red)">⚠️ ${escHtml(event.content)}</span>
