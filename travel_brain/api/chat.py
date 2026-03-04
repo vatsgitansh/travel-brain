@@ -299,10 +299,11 @@ async def stream_gemini(query: str, context_chunks: list[dict], history: list[Ch
         config_gen = types.GenerateContentConfig(
             temperature=0.7,
             max_output_tokens=1500,
+            tools=[{"google_search": {}}],
         )
 
         async for chunk in await client.aio.models.generate_content_stream(
-            model="gemma-3-27b-it",
+            model="gemini-2.5-flash",
             contents=gemini_history + [types.Content(role="user", parts=[types.Part(text=query)])],
             config=config_gen,
         ):
