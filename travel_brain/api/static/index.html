@@ -1045,11 +1045,23 @@
         container.style.width = '800px';
         document.body.appendChild(container);
 
-        // This command builds the PDF and triggers the browser download natively.
-        await html2pdf().set(opt).from(container).save();
+        // Base64 Data URI generation completely bypasses Safari's Blob UUID bug!
+        const pdfBase64 = await html2pdf().set(opt).from(container).outputPdf('datauristring');
 
-        // Cleanup off-screen element
-        document.body.removeChild(container);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = pdfBase64;
+        a.download = opt.filename;
+        document.body.appendChild(a);
+
+        // Force the physical file download
+        a.click();
+
+        // Cleanup off-screen DOM injection
+        setTimeout(() => {
+          document.body.removeChild(a);
+          if (document.body.contains(container)) document.body.removeChild(container);
+        }, 500);
 
       } catch (err) {
         alert("Sorry, could not generate the PDF at this time.");
