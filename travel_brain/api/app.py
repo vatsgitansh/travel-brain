@@ -23,7 +23,6 @@ from travel_brain import config
 from travel_brain.api.query import router as query_router
 from travel_brain.api.chat  import router as chat_router
 from travel_brain.api.advisories import router as advisories_router
-from travel_brain.api.itinerary import router as itinerary_router
 
 logging.basicConfig(
     level=getattr(logging, config.LOG_LEVEL, logging.INFO),
@@ -76,7 +75,6 @@ app.add_middleware(
 app.include_router(query_router)
 app.include_router(chat_router)
 app.include_router(advisories_router)
-app.include_router(itinerary_router)
 
 # ── Chat UI ───────────────────────────────────────────────────────────────────
 
