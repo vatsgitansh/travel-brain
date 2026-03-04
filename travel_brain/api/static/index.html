@@ -1045,23 +1045,13 @@
         container.style.width = '800px';
         document.body.appendChild(container);
 
-        // Base64 Data URI generation completely bypasses Safari's Blob UUID bug!
-        const pdfBase64 = await html2pdf().set(opt).from(container).outputPdf('datauristring');
+        // Rely completely on html2pdf's built-in save tool (uses FileSaver.js natively for Chrome/Safari support)
+        await html2pdf().set(opt).from(container).save();
 
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = pdfBase64;
-        a.download = opt.filename;
-        document.body.appendChild(a);
-
-        // Force the physical file download
-        a.click();
-
-        // Cleanup off-screen DOM injection
-        setTimeout(() => {
-          document.body.removeChild(a);
-          if (document.body.contains(container)) document.body.removeChild(container);
-        }, 500);
+        // Cleanup off-screen element 
+        if (document.body.contains(container)) {
+          document.body.removeChild(container);
+        }
 
       } catch (err) {
         alert("Sorry, could not generate the PDF at this time.");
