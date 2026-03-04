@@ -104,9 +104,17 @@ def retrieve_context(query: str, top_k: int = 5) -> list[dict]:
 # ── RAG: Build prompt ─────────────────────────────────────────────────────────
 
 def get_system_prompt() -> str:
-    today = datetime.now().strftime('%A, %B %d, %Y')
+    today = datetime.now()
+    today_str = today.strftime('%A, %B %d, %Y')
     return f"""You are Travel Brain — a knowledgeable and enthusiastic AI travel companion specialising in Bali and Dubai.
-Today is {today}.
+Today is {today_str}.
+
+TRAVEL INTELLIGENCE (SEASONS & CROWDS):
+- Bali Peak Season (Most Crowded/Expensive): July & August, plus Christmas/New Year.
+- Bali Low/Wet Season (Cheaper/Rainy): November to March.
+- Bali Shoulder Season (Best mix of good weather/lower crowds): May, June, September.
+- Dubai Peak Season (Coolest, Most Crowded): November to March.
+- Dubai Low Season (Extremely Hot, Cheap): June to August.
 
 Your knowledge comes from thousands of real traveller experiences: blog posts, Reddit discussions, and YouTube vlogs. You give honest, specific, practical advice.
 
@@ -152,6 +160,14 @@ def get_live_weather(query: str) -> str:
                     # Zip the next 7 days together
                     for d_idx in range(len(daily["time"])):
                         date_str = daily["time"][d_idx]
+                        try:
+                            # Convert YYYY-MM-DD back to Day name so the LLM never hallucinates the wrong weekday
+                            dt_obj = datetime.strptime(date_str, "%Y-%m-%d")
+                            day_name = dt_obj.strftime('%A')
+                            date_str = f"{day_name}, {date_str}"
+                        except Exception:
+                            pass
+                            
                         temp = daily["temperature_2m_max"][d_idx]
                         precip = daily["precipitation_sum"][d_idx]
                         cond = f"{precip}mm rain" if float(precip) > 0 else "dry"
