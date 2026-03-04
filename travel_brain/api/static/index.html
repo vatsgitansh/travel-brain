@@ -903,8 +903,8 @@
               } else if (event.type === 'done') {
                 let actionBtn = '';
                 if (fullAnswer.length > 250) {
-                  // Safe injection for the onclick handler
-                  const escContent = encodeURIComponent(fullAnswer);
+                  // Safe injection for the onclick handler, explicitly escaping apostrophes
+                  const escContent = encodeURIComponent(fullAnswer).replace(/'/g, "%27");
                   actionBtn = `
                     <div style="margin-top:12px; border-top: 1px solid var(--border); padding-top: 8px;">
                       <button onclick="downloadPDF(decodeURIComponent('${escContent}'))" class="chip" style="border:1px solid var(--primary); background:var(--bg); color:var(--primary); cursor:pointer;">
