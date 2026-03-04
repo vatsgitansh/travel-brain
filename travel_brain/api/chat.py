@@ -17,6 +17,7 @@ import logging
 import os
 import ssl
 import urllib.request
+from datetime import datetime
 from typing import AsyncGenerator, Optional
 
 from fastapi import APIRouter, HTTPException
@@ -102,7 +103,10 @@ def retrieve_context(query: str, top_k: int = 5) -> list[dict]:
 
 # ── RAG: Build prompt ─────────────────────────────────────────────────────────
 
-SYSTEM_PROMPT = """You are Travel Brain — a knowledgeable and enthusiastic AI travel companion specialising in Bali and Dubai.
+def get_system_prompt() -> str:
+    today = datetime.now().strftime('%A, %B %d, %Y')
+    return f"""You are Travel Brain — a knowledgeable and enthusiastic AI travel companion specialising in Bali and Dubai.
+Today is {today}.
 
 Your knowledge comes from thousands of real traveller experiences: blog posts, Reddit discussions, and YouTube vlogs. You give honest, specific, practical advice.
 
@@ -164,7 +168,7 @@ def get_live_weather(query: str) -> str:
 
 def build_messages_openai(query: str, context_chunks: list[dict], history: list[ChatMessage]) -> list[dict]:
     """Build the OpenAI-format messages list."""
-    messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
+    messages: list[dict] = [{"role": "system", "content": get_system_prompt()}]
 
     if context_chunks:
         context_parts = []
@@ -207,7 +211,7 @@ def build_messages_openai(query: str, context_chunks: list[dict], history: list[
 
 def build_gemini_prompt(query: str, context_chunks: list[dict], history: list[ChatMessage]) -> str:
     """Build a single prompt string for Gemini (handles its own conversation internally)."""
-    parts = [SYSTEM_PROMPT, "\n\n"]
+    parts = [get_system_prompt(), "\n\n"]
 
     if context_chunks:
         parts.append("TRAVEL KNOWLEDGE BASE:\n")
@@ -256,7 +260,7 @@ async def stream_gemini(query: str, context_chunks: list[dict], history: list[Ch
                 if text:
                     context_parts_text.append(f"[{i}] {text}")
 
-        setup_msg = SYSTEM_PROMPT
+        setup_msg = get_system_prompt()
         if context_parts_text:
             setup_msg += (
                 "\n\nRelevant travel knowledge for this conversation:\n\n"
