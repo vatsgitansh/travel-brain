@@ -861,7 +861,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             message: text,
-            history: conversationHistory.slice(-12),
+            history: conversationHistory.slice(0, -1).slice(-10),
             top_k: 5,
           }),
         });
@@ -903,19 +903,22 @@
                 bubbleEl.innerHTML = renderMarkdown(fullAnswer);
                 scrollToBottom();
               } else if (event.type === 'error') {
-                bubbleEl.innerHTML = `<span style="color:var(--red)">⚠️ ${escHtml(event.content)}</span>`;
+                bubbleEl.innerHTML = `<span style="color:var(--red)">⚠️ ${escHtml(event.content)}</span>
+                  <br><button onclick="retryMessage('${escHtml(text).replace(/'/g, "\\'")}')" class="chip" style="margin-top:10px; border:1px solid var(--red); cursor:pointer;">🔄 Retry Request</button>`;
               }
             } catch { /* skip malformed JSON */ }
           }
         }
 
-        // Save complete conversation to localStorage
-        conversationHistory.push({ role: 'assistant', content: fullAnswer });
-        saveConversation(
-          currentConvId,
-          conversationHistory[0]?.content?.slice(0, 60) || 'Conversation',
-          conversationHistory
-        );
+        // Save complete conversation to localStorage if successful
+        if (fullAnswer.trim().length > 0) {
+            conversationHistory.push({ role: 'assistant', content: fullAnswer });
+            saveConversation(
+              currentConvId,
+              conversationHistory[0]?.content?.slice(0, 60) || 'Conversation',
+              conversationHistory
+            );
+        }
         renderHistory();
 
       } catch (err) {
@@ -923,6 +926,7 @@
         bubbleEl.innerHTML = `<span style="color:var(--red)">
         ⚠️ Could not reach Travel Brain API.<br>
         <small style="color:var(--text-3)">Make sure the server is running on port 8000.</small>
+        <br><button onclick="retryMessage('${escHtml(text).replace(/'/g, "\\'")}')" class="chip" style="margin-top:10px; border:1px solid var(--red); cursor:pointer;">🔄 Retry Request</button>
       </span>`;
       } finally {
         isStreaming = false;
@@ -930,6 +934,22 @@
         document.getElementById('chatInput').focus();
         scrollToBottom();
       }
+    }
+
+    /* ── Retry Message ───────────────────────────────────────────────────────── */
+    function retryMessage(text) {
+      if (isStreaming) return;
+      const el = document.getElementById('messages');
+      // Remove AI Error bubble
+      if (el.lastElementChild) el.removeChild(el.lastElementChild);
+      // Remove User Sent bubble
+      if (el.lastElementChild) el.removeChild(el.lastElementChild);
+      // Remove user sent message from history state
+      if (conversationHistory.length > 0) conversationHistory.pop();
+      
+      // Resend the text
+      document.getElementById('chatInput').value = text;
+      sendMessage();
     }
 
     /* ── DOM ─────────────────────────────────────────────────────────────────── */
