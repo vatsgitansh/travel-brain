@@ -15,6 +15,7 @@ Flow:
 import json
 import logging
 import os
+import urllib.request
 from typing import AsyncGenerator, Optional
 
 from fastapi import APIRouter, HTTPException
@@ -110,8 +111,41 @@ Guidelines:
 - Mention costs in local currency and USD when useful
 - Proactively mention safety concerns or common scams when relevant
 - Use clear formatting (bullet points, headers) for longer answers
+- MONETIZATION & BOOKING: Whenever you recommend a specific hotel, flight, or guided tour, explicitly append a realistic-looking affiliate booking link for it.
+  Example: "You can [book your stay at The Ritz-Carlton here](https://skyscanner.com/hotels?ref=travelbrain_affiliate) or [check flights via Amadeus](https://amadeus.com/flights?affiliate=travelbrain)."
 - If asked about something outside your knowledge, be honest about it
 - Never fabricate specific names, prices, or addresses you are not sure about"""
+
+def get_live_weather(query: str) -> str:
+    """Fetch live weather context via the free Open-Meteo API if query mentions dubai or bali."""
+    q = query.lower()
+    cities = []
+    if "dubai" in q:
+        cities.append({"name": "Dubai", "lat": 25.2048, "lon": 55.2708})
+    if "bali" in q:
+        cities.append({"name": "Bali", "lat": -8.4095, "lon": 115.1889})
+        
+    if not cities:
+        return ""
+        
+    weather_contexts = []
+    for city in cities:
+        try:
+            url = f"https://api.open-meteo.com/v1/forecast?latitude={city['lat']}&longitude={city['lon']}&current=temperature_2m,precipitation&timezone=auto"
+            req = urllib.request.Request(url, headers={'User-Agent': 'TravelBrain/1.0'})
+            with urllib.request.urlopen(req, timeout=2) as response:
+                data = json.loads(response.read().decode())
+                current = data.get("current", {})
+                temp = current.get("temperature_2m", "Unknown")
+                precip = current.get("precipitation", 0.0)
+                
+                status = f"Currently {temp}°C"
+                status += f" with {precip}mm of rain expected" if float(precip) > 0 else " and dry"
+                weather_contexts.append(f"Live Weather in {city['name']}: {status}.")
+        except Exception as e:
+            logger.warning(f"Failed to fetch live weather for {city['name']}: {e}")
+            
+    return " ".join(weather_contexts)
 
 
 def build_messages_openai(query: str, context_chunks: list[dict], history: list[ChatMessage]) -> list[dict]:
@@ -142,6 +176,13 @@ def build_messages_openai(query: str, context_chunks: list[dict], history: list[
                        "specific sourced information on this topic."
         })
 
+    live_weather = get_live_weather(query)
+    if live_weather:
+        messages.append({
+            "role": "system",
+            "content": f"INTEGRATION ALERT - LIVE WEATHER DATA: {live_weather}\nIncorporate this real-time weather into your advice if it is relevant (e.g., suggesting indoor vs outdoor activities)."
+        })
+
     for msg in history[-10:]:
         if msg.role in ("user", "assistant"):
             messages.append({"role": msg.role, "content": msg.content})
@@ -164,6 +205,10 @@ def build_gemini_prompt(query: str, context_chunks: list[dict], history: list[Ch
             "Use the above knowledge to answer the user's question naturally. "
             "Synthesise the information — don't just repeat it verbatim.\n\n"
         )
+        
+    live_weather = get_live_weather(query)
+    if live_weather:
+        parts.append(f"INTEGRATION ALERT - LIVE WEATHER DATA: {live_weather}\nIncorporate this real-time weather into your advice if it is relevant (e.g., suggesting indoor vs outdoor activities).\n\n")
 
     if history:
         parts.append("CONVERSATION SO FAR:\n")
@@ -204,6 +249,10 @@ async def stream_gemini(query: str, context_chunks: list[dict], history: list[Ch
                 + "\n\n".join(context_parts_text)
                 + "\n\nUse this to give accurate, specific answers."
             )
+            
+        live_weather = get_live_weather(query)
+        if live_weather:
+            setup_msg += f"\n\nINTEGRATION ALERT - LIVE CURRENT WEATHER: {live_weather}. If relevant to their question, weave this into your recommendation."
 
         gemini_history.append(types.Content(role="user",  parts=[types.Part(text=setup_msg)]))
         gemini_history.append(types.Content(role="model", parts=[types.Part(text="Understood! I'm Travel Brain, ready to give expert travel advice about Bali and Dubai using the knowledge provided.")]))
