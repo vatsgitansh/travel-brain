@@ -4,4 +4,5 @@ __pycache__/
 *.pyc
 .idea/
 .vscode/
-data/
+data/raw/
+data/processed/
