@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+    <div id="content">Hello World</div>
+    <script>
+        async function test() {
+            try {
+                const pdfBase64 = await html2pdf().from(document.getElementById('content')).outputPdf('datauristring');
+                console.log("BASE64 START:", pdfBase64.substring(0, 50));
+            } catch(e) {
+                console.error("ERROR:", e);
+            }
+        }
+        test();
+    </script>
+</body>
+</html>

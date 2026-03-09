@@ -48,12 +48,26 @@ else:
     LLM_PROVIDER = ""
 
 # ── Embedding Models ──────────────────────────────────────────────────────────
-OPENAI_EMBEDDING_MODEL    = "text-embedding-3-small"
-OPENAI_EMBEDDING_DIM      = 1536
-LOCAL_EMBEDDING_MODEL     = "sentence-transformers/all-MiniLM-L6-v2"
-LOCAL_EMBEDDING_DIM       = 384
+# Provider priority:
+#   gemini → free, cloud-safe, no PyTorch (RECOMMENDED for Railway)
+#   openai → paid, high quality
+#   local  → offline only, requires torch (~3GB) — DO NOT use on cloud
+EMBEDDING_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "gemini")  # default: gemini
 
-EMBEDDING_DIM = OPENAI_EMBEDDING_DIM if EMBEDDING_PROVIDER == "openai" else LOCAL_EMBEDDING_DIM
+OPENAI_EMBEDDING_MODEL  = "text-embedding-3-small"
+OPENAI_EMBEDDING_DIM    = 1536
+
+GEMINI_EMBEDDING_MODEL  = "models/text-embedding-004"
+GEMINI_EMBEDDING_DIM    = 768
+
+LOCAL_EMBEDDING_MODEL   = "sentence-transformers/all-MiniLM-L6-v2"
+LOCAL_EMBEDDING_DIM     = 384
+
+EMBEDDING_DIM = (
+    OPENAI_EMBEDDING_DIM if EMBEDDING_PROVIDER == "openai"
+    else GEMINI_EMBEDDING_DIM if EMBEDDING_PROVIDER == "gemini"
+    else LOCAL_EMBEDDING_DIM
+)
 
 # ── Chunking ──────────────────────────────────────────────────────────────────
 CHUNK_TARGET_TOKENS = 512

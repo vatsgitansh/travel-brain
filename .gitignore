@@ -6,3 +6,6 @@ __pycache__/
 .vscode/
 data/raw/
 data/processed/
+node_modules/
+*.log
+.pytest_cache/
