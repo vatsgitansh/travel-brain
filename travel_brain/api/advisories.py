@@ -93,33 +93,20 @@ def get_live_advisories() -> dict:
 
 @router.get("/")
 async def get_all_advisories():
-    """Get live status for our tracked locations."""
+    """Get live travel advisory status for our tracked destinations from the US State Dept."""
     live_data = get_live_advisories()
-    
+
     results = {}
     for loc_key, country_name in LOCATION_MAP.items():
         if country_name in live_data:
-            # Found an advisory
             results[loc_key] = live_data[country_name]
         else:
-            # Default safe
+            # Advisory data unavailable — show a neutral placeholder, NOT a fake alert
             results[loc_key] = {
-                "level": 1,
-                "title": "Exercise Normal Precautions",
-                "description": f"No active high-level travel advisories for {country_name}.",
+                "level": None,
+                "title": "Advisory data unavailable",
+                "description": f"Could not retrieve advisory data for {country_name}. Please check travel.state.gov directly.",
                 "link": "https://travel.state.gov/"
             }
-            
-    # Mocking a live war/high-risk situation for demonstration if nothing is exceptionally bad right now
-    # We detect if the user asked to see a "war like situation" style warning for Dubai specifically:
-    dubai_adv = results.get("dubai")
-    if isinstance(dubai_adv, dict) and int(dubai_adv.get("level", 0)) < 3:
-        # For demonstration purposes, override to show how the UI handles Level 3/4
-        # (This simulates the live data feed catching a breaking event)
-        dubai_adv["level"] = 3
-        dubai_adv["title"] = "Reconsider Travel: Regional Conflict"
-        dubai_adv["description"] = "Reconsider travel to the United Arab Emirates due to regional hostilities and ongoing risks of conflict and airspace disruptions in the broader Middle East. Commercial flights may be subject to sudden cancellation."
-        dubai_adv["is_simulated_alert"] = True
-        results["dubai"] = dubai_adv
 
     return results

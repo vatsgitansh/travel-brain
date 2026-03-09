@@ -5,12 +5,14 @@ Start the server:
   uvicorn travel_brain.api.app:app --reload --port 8000
 
 Then open:
-  http://localhost:8000/docs   →  Swagger UI (interactive API explorer)
-  http://localhost:8000/redoc  →  ReDoc documentation
+  http://localhost:8000/ui    →  Chat UI
+  http://localhost:8000/docs  →  Swagger UI
 """
 
 import logging
+import os
 import sys
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -29,6 +31,25 @@ logging.basicConfig(
     format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
 )
 logger = logging.getLogger("api")
+
+
+# ── Startup: Pre-warm models to eliminate cold-start lag on first request ─────
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Pre-warm the embedding model and ChromaDB client on server startup."""
+    logger.info("🔥 Pre-warming embedding model and vector DB client...")
+    try:
+        from travel_brain.processing.embedder import embed_texts
+        from travel_brain.api.query import get_db
+        embed_texts(["warmup"])   # Forces sentence-transformers to load into memory
+        get_db()                  # Opens the ChromaDB persistent client
+        logger.info("✅ Model and DB warm-up complete. First request will be instant.")
+    except Exception as e:
+        logger.warning(f"⚠️  Warm-up failed (non-fatal): {e}")
+    yield
+    logger.info("Travel Brain API shutting down.")
+
 
 # ── App Definition ────────────────────────────────────────────────────────────
 
@@ -52,7 +73,7 @@ Powered by a vector database of scraped travel knowledge from:
 - 🌴 **Bali** — hidden beaches, rice terraces, warung food, scooter routes, digital nomad spots
 - 🏙️ **Dubai** — free activities, Old Dubai, desert experiences, budget tips
     """,
-    version="1.0.0",
+    version="1.1.0",
     contact={
         "name": "Travel Brain CTO",
         "email": "cto@travelbrain.ai",
@@ -60,15 +81,21 @@ Powered by a vector database of scraped travel knowledge from:
     license_info={
         "name": "Proprietary",
     },
+    lifespan=lifespan,
 )
 
-# ── CORS (allow all origins for development) ──────────────────────────────────
+# ── CORS — Locked to configured origins ──────────────────────────────────────
+# In production, set CORS_ORIGINS env var to your domain(s), e.g.:
+#   CORS_ORIGINS=https://travelbrain.ai,https://app.travelbrain.ai
+_raw_origins = os.getenv("CORS_ORIGINS", "http://localhost:8000,http://127.0.0.1:8000")
+_allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Restrict in production
+    allow_origins=_allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 # ── Routers ───────────────────────────────────────────────────────────────────
@@ -93,7 +120,7 @@ if STATIC_DIR.exists():
 
 @app.get("/health", tags=["System"], summary="Health check")
 async def health_check() -> dict:
-    """Returns the API status and vector DB statistics."""
+    """Returns API status, vector DB statistics, and configuration details."""
     from travel_brain.api.query import get_db
     try:
         db = get_db()
@@ -105,12 +132,12 @@ async def health_check() -> dict:
 
     return {
         "status": status,
+        "version": "1.1.0",
         "vector_db": config.VECTOR_DB_PROVIDER,
         "embedding_model": config.EMBEDDING_PROVIDER,
         "embedding_dim": config.EMBEDDING_DIM,
         "locations": config.LOCATIONS,
         "db_stats": db_stats,
-        "version": "1.0.0",
     }
 
 

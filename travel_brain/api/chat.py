@@ -16,6 +16,7 @@ import json
 import logging
 import os
 import ssl
+import certifi
 import urllib.request
 from datetime import datetime
 from typing import AsyncGenerator, Optional
@@ -148,8 +149,8 @@ def get_live_weather(query: str) -> str:
     weather_contexts = []
     for city in cities:
         try:
-            # Bypass SSL restrictions that occur on some local MacBooks
-            ctx = ssl._create_unverified_context()
+            # Use certifi SSL bundle — works on macOS, Linux, and cloud servers
+            ctx = ssl.create_default_context(cafile=certifi.where())
             
             # Request the 7-day daily forecast instead of just current
             url = f"https://api.open-meteo.com/v1/forecast?latitude={city['lat']}&longitude={city['lon']}&daily=temperature_2m_max,precipitation_sum&timezone=auto"
