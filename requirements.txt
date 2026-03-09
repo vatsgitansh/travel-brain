@@ -4,7 +4,7 @@ uvicorn[standard]==0.41.0
 starlette==0.52.1
 pydantic==2.12.5
 
-# ── AI / Google Gemini (LLM + Embeddings — replaces torch entirely) ────────────
+# ── AI / Google Gemini (LLM + FREE Embeddings) ─────────────────────────────────
 google-genai==1.65.0
 google-ai-generativelanguage==0.6.15
 google-api-core==2.30.0
@@ -14,6 +14,7 @@ proto-plus==1.27.1
 protobuf==5.29.6
 
 # ── Vector Database ────────────────────────────────────────────────────────────
+# chromadb without heavy ML extras (no onnxruntime GPU, no torch)
 chromadb==1.5.1
 pinecone==6.0.2
 
@@ -39,7 +40,3 @@ certifi==2026.2.25
 
 # ── Testing ────────────────────────────────────────────────────────────────────
 pytest==9.0.2
-
-# ── NOTE: sentence-transformers / torch are intentionally excluded ─────────────
-# We use EMBEDDING_PROVIDER=gemini on Railway. If you need local embeddings,
-# install manually: pip install sentence-transformers torch
