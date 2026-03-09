@@ -307,20 +307,33 @@ async def stream_gemini(query: str, context_chunks: list[dict], history: list[Ch
             tools=[{"google_search": {}}],
         )
 
-        async for chunk in await client.aio.models.generate_content_stream(
-            model="gemini-2.5-flash",
-            contents=gemini_history + [types.Content(role="user", parts=[types.Part(text=query)])],
-            config=config_gen,
-        ):
-            if chunk.text:
-                event = json.dumps({"type": "delta", "content": chunk.text})
-                yield f"data: {event}\n\n"
+        # Try streaming; retry once on rate-limit (402/429)
+        for attempt in range(2):
+            try:
+                async for chunk in await client.aio.models.generate_content_stream(
+                    model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
+                    contents=gemini_history + [types.Content(role="user", parts=[types.Part(text=query)])],
+                    config=config_gen,
+                ):
+                    if chunk.text:
+                        event = json.dumps({"type": "delta", "content": chunk.text})
+                        yield f"data: {event}\n\n"
+                break  # success — exit retry loop
+            except Exception as rate_err:
+                err_str = str(rate_err)
+                if attempt == 0 and ("402" in err_str or "429" in err_str or "RESOURCE_EXHAUSTED" in err_str):
+                    import asyncio
+                    logger.warning(f"Rate limit hit, retrying in 12s: {rate_err}")
+                    yield f"data: {json.dumps({'type': 'delta', 'content': '_(Rate limit — retrying in 12s...)_'})}\n\n"
+                    await asyncio.sleep(12)
+                    continue
+                raise  # re-raise on second attempt or non-rate-limit errors
 
         yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
     except Exception as e:
         logger.error(f"Gemini error: {e}")
-        error_event = json.dumps({"type": "error", "content": f"Gemini error: {str(e)}"})
+        error_event = json.dumps({"type": "error", "content": f"⚠️ Gemini error: {str(e)}"})
         yield f"data: {error_event}\n\n"
 
 
