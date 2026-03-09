@@ -9,3 +9,8 @@ data/processed/
 node_modules/
 *.log
 .pytest_cache/
+.DS_Store
+test_pdf*
+test_gemini*
+test_html2pdf*
+compare.py
