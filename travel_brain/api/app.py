@@ -37,7 +37,7 @@ logger = logging.getLogger("api")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Pre-warm the embedding model and ChromaDB client on server startup."""
+    """Pre-warm the embedding model, ChromaDB client, and start the biweekly scheduler."""
     logger.info("🔥 Pre-warming embedding model and vector DB client...")
     try:
         from travel_brain.processing.embedder import embed_texts
@@ -47,7 +47,22 @@ async def lifespan(app: FastAPI):
         logger.info("✅ Model and DB warm-up complete. First request will be instant.")
     except Exception as e:
         logger.warning(f"⚠️  Warm-up failed (non-fatal): {e}")
+
+    # Start the biweekly data enrichment scheduler
+    try:
+        from travel_brain.scheduler import start_background_scheduler, stop_background_scheduler
+        start_background_scheduler()
+    except Exception as e:
+        logger.warning(f"⚠️  Scheduler failed to start (non-fatal): {e}")
+
     yield
+
+    # Shutdown scheduler gracefully when server stops
+    try:
+        from travel_brain.scheduler import stop_background_scheduler
+        stop_background_scheduler()
+    except Exception:
+        pass
     logger.info("Travel Brain API shutting down.")
 
 

@@ -1,102 +1,153 @@
 """
-scheduler.py — Automated weekly pipeline re-runs using APScheduler.
-Keeps our Travel Brain data fresh without manual intervention.
+scheduler.py — Automated biweekly pipeline for Travel Brain.
 
-Run this as a long-lived background process:
-  python travel_brain/scheduler.py
+Runs every 2 weeks (1st and 15th of each month at 03:00 UTC).
+Scrapes all sources for all locations and upserts new/updated content
+into the ChromaDB vector database to keep the AI's knowledge fresh.
 
-Schedule:
-  - Bali  Reddit : Every Monday  06:00 UTC
-  - Dubai Reddit : Every Monday  06:30 UTC
-  - Bali  YouTube: Every Tuesday 06:00 UTC
-  - Dubai YouTube: Every Tuesday 06:30 UTC
-  - Bali  Blogs  : Every Wednesday 06:00 UTC
-  - Dubai Blogs  : Every Wednesday 06:30 UTC
+Modes:
+  1. Embedded (default):  imported by app.py and runs as a background thread
+  2. Standalone:          `python travel_brain/scheduler.py`  (for local dev/cron)
 """
 
 import logging
 import sys
+import threading
 from pathlib import Path
 
+from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 from rich.console import Console
+from rich.table import Table
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from travel_brain import config
 from travel_brain.pipeline import run_pipeline
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)-8s | %(message)s",
-)
-logger   = logging.getLogger("scheduler")
-console  = Console()
-scheduler = BlockingScheduler(timezone="UTC")
+logger  = logging.getLogger("scheduler")
+console = Console()
+
+# ── Job Definitions ───────────────────────────────────────────────────────────
+
+# Biweekly schedule: runs on the 1st and 15th of each month at 03:00 UTC.
+# Sources are staggered by 15 minutes to avoid overloading APIs simultaneously.
+BIWEEKLY_JOBS = [
+    # (location, source,     hour, minute)
+    ("bali",  "reddit",      3,    0),
+    ("dubai", "reddit",      3,   15),
+    ("bali",  "youtube",     3,   30),
+    ("dubai", "youtube",     3,   45),
+    ("bali",  "blog",        4,    0),
+    ("dubai", "blog",        4,   15),
+]
 
 
 def make_job(location: str, source: str):
     """Factory: returns a callable pipeline job for a specific location + source."""
-    def job():
-        logger.info(f"⏰ Scheduled job starting: {location}/{source}")
+    def _job():
+        logger.info(f"⏰ Biweekly pipeline starting: {location}/{source}")
         try:
-            run_pipeline(
+            stats = run_pipeline(
                 locations=[location],
                 sources=[source],
                 limit=config.SCRAPE_LIMIT,
-                dry_run=False,                  # Always write in scheduled mode
+                dry_run=False,
             )
-            logger.info(f"✅ Scheduled job complete: {location}/{source}")
+            upserted = stats.get("upserted", 0) if isinstance(stats, dict) else "?"
+            logger.info(f"✅ Pipeline done: {location}/{source} — {upserted} chunks upserted")
         except Exception as e:
-            logger.error(f"❌ Scheduled job failed: {location}/{source} — {e}", exc_info=True)
-    job.__name__ = f"pipeline_{location}_{source}"
-    return job
+            logger.error(
+                f"❌ Pipeline failed: {location}/{source} — {e}",
+                exc_info=True,
+            )
+    _job.__name__ = f"pipeline_{location}_{source}"
+    return _job
 
 
-def register_jobs():
-    """Register all weekly scraping jobs."""
-    schedule = [
-        # (location, source, day_of_week, hour)
-        ("bali",  "reddit",  "mon", 6),
-        ("dubai", "reddit",  "mon", 6),
-        ("bali",  "youtube", "tue", 6),
-        ("dubai", "youtube", "tue", 6),
-        ("bali",  "blog",    "wed", 6),
-        ("dubai", "blog",    "wed", 6),
-    ]
+def _build_scheduler(blocking: bool = False):
+    """Create and register all biweekly jobs. Returns the configured scheduler."""
+    sched = BlockingScheduler(timezone="UTC") if blocking else BackgroundScheduler(timezone="UTC")
 
-    for location, source, day, hour in schedule:
-        minute_offset = 30 if location == "dubai" else 0
-        scheduler.add_job(
+    for location, source, hour, minute in BIWEEKLY_JOBS:
+        sched.add_job(
             make_job(location, source),
-            trigger=CronTrigger(day_of_week=day, hour=hour, minute=minute_offset),
-            id=f"pipeline_{location}_{source}",
-            name=f"Travel Brain — {location.title()} {source.title()}",
-            misfire_grace_time=3600,  # Allow up to 1hr late start
+            # day='1,15' → 1st and 15th of each month
+            trigger=CronTrigger(day="1,15", hour=hour, minute=minute),
+            id=f"biweekly_{location}_{source}",
+            name=f"Travel Brain — {location.title()} {source.title()} (biweekly)",
+            misfire_grace_time=7200,   # Allow up to 2 hrs late if server was down
             max_instances=1,
-        )
-        logger.info(
-            f"Registered: {location}/{source} "
-            f"→ every {day.title()} {hour:02d}:{minute_offset:02d} UTC"
+            replace_existing=True,
         )
 
+    return sched
+
+
+# ── Embedded Mode (called from app.py lifespan) ───────────────────────────────
+
+_scheduler_instance = None
+_scheduler_lock = threading.Lock()
+
+
+def start_background_scheduler() -> None:
+    """
+    Start the biweekly scheduler as a background thread.
+    Safe to call multiple times — only starts once.
+    Called from FastAPI's lifespan handler.
+    """
+    global _scheduler_instance
+    with _scheduler_lock:
+        if _scheduler_instance is not None:
+            return
+        sched = _build_scheduler(blocking=False)
+        sched.start()
+        _scheduler_instance = sched
+
+        # Print next run times
+        table = Table(title="📅 Biweekly Scraping Schedule (UTC)", show_lines=True)
+        table.add_column("Job", style="cyan")
+        table.add_column("Next Run", style="green")
+        for job in sched.get_jobs():
+            table.add_row(job.name, str(job.next_run_time))
+        console.print(table)
+        logger.info(f"Biweekly scheduler started with {len(sched.get_jobs())} jobs.")
+
+
+def stop_background_scheduler() -> None:
+    """Gracefully shut down the scheduler (called on app shutdown)."""
+    global _scheduler_instance
+    with _scheduler_lock:
+        if _scheduler_instance and _scheduler_instance.running:
+            _scheduler_instance.shutdown(wait=False)
+            _scheduler_instance = None
+            logger.info("Biweekly scheduler stopped.")
+
+
+# ── Standalone Mode ───────────────────────────────────────────────────────────
 
 def main():
-    console.print("[bold green]🕐 Travel Brain Scheduler Starting...[/]")
-    register_jobs()
+    """Run the scheduler as a standalone blocking process (for local dev/cron)."""
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s | %(levelname)-8s | %(message)s",
+    )
+    console.print("[bold green]🕐 Travel Brain Biweekly Scheduler Starting...[/]")
+    sched = _build_scheduler(blocking=True)
 
-    console.print(f"\n[bold]Registered {len(scheduler.get_jobs())} scheduled jobs:[/]")
-    for job in scheduler.get_jobs():
-        console.print(f"  • {job.name}")
-        console.print(f"    Next run: {job.next_run_time}")
-
+    table = Table(title="📅 Registered Jobs", show_lines=True)
+    table.add_column("Job")
+    table.add_column("Next Run")
+    for job in sched.get_jobs():
+        table.add_row(job.name, str(job.next_run_time))
+    console.print(table)
     console.print("\n[italic]Scheduler running. Press Ctrl+C to stop.[/]")
 
     try:
-        scheduler.start()
+        sched.start()
     except KeyboardInterrupt:
-        console.print("\n[yellow]Scheduler stopped.[/]")
-        scheduler.shutdown()
+        console.print("\n[yellow]Scheduler stopped by user.[/]")
+        sched.shutdown()
 
 
 if __name__ == "__main__":
